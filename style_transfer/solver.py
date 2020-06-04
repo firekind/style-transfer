@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 import torch
 import torch.optim as optim
@@ -22,8 +22,8 @@ def transfer_style(
         image_size: int = 512,
         content_as_input: bool = True,
         epochs: int = 16,
-        content_weight: float = 1,
-        style_weight: float = 1000000,
+        content_weight: Union[float, List[float]] = 1,
+        style_weight: Union[float, List[float]] = 1000000,
         extractor_mean: List[float] = (0.485, 0.456, 0.406),
         extractor_std: List[float] = (0.229, 0.224, 0.225),
         content_layers: List[str] = ("conv_4",),
@@ -39,8 +39,10 @@ def transfer_style(
         image_size (int, optional): The size to resize to while training. Defaults to 512.
         content_as_input (bool, optional): Use the content image as input while training. Defaults to True.
         epochs (int, optional): Number of epochs to train for. Defaults to 16.
-        content_weight (float, optional): The weight for the content loss. Defaults to 1.
-        style_weight (float, optional): The weight for the style loss. Defaults to 1000000.
+        content_weight (Union[float, List[float], optional): The weight(s) for the content loss. If a list, number of weights given should
+        match the number of layers given for `content_layers`. Defaults to 1.
+        style_weight (Union[float, List[float], optional): The weight(s) for the style loss. If a list, number of weights given should
+        match the number of layers given for `style_layers`.Defaults to 1000000.
         extractor_mean (List[float], optional): The mean used to normalize the channels during the training of the 
         model which will be used to extract features (VGG19 by default). Defaults to [0.485, 0.456, 0.406].
         extractor_std (List[float], optional): The std used to normalize the channels during the training of the 
@@ -48,12 +50,25 @@ def transfer_style(
         content_layers (List[str]): The layers used to calculate content loss.
         style_layers (List[str]): The layers used to calculate style loss.
 
+    Raises:
+        RuntimeError: If the number of weights given are invalid (if they are a list)
+
     Returns:
         Image.Image: The resultant image.
     """
 
     # getting device to be used
     device: str = "cuda:0" if torch.cuda.is_available() and cuda else "cpu"
+
+    # parsing loss weights
+    if not isinstance(content_weight, (list, tuple)):
+        content_weight = [content_weight for _ in range(len(content_layers))]
+    if not isinstance(style_weight, (list, tuple)):
+        style_weight = [style_weight for _ in range(len(style_layers))]
+    
+    # checking if the losses are correctly given
+    if len(content_weight) != len(content_layers) or len(style_weight) != len(style_layers):
+        raise RuntimeError("invalid number of weights.")
 
     # getting the pre-processing and post processing transforms
     preprocess, postprocess = get_processing_transforms(image_size)
@@ -123,19 +138,19 @@ def transfer_style(
             res = model(input_image)
 
             # calculating the total content loss
-            for name in content_layers:
+            for i, name in enumerate(content_layers):
                 full_name = f"content_{name}"
-                content_score += content_loss(getattr(res, full_name), getattr(targets, full_name))
+                content_score += content_weight[i] * content_loss(getattr(res, full_name), getattr(targets, full_name))
             content_loss_sum += content_score
 
             # calculating the total style loss
-            for name in style_layers:
+            for i, name in enumerate(style_layers):
                 full_name = f"style_{name}"
-                style_score += style_loss(getattr(res, full_name), getattr(targets, full_name))
+                style_score += style_weight[i] * style_loss(getattr(res, full_name), getattr(targets, full_name))
             style_loss_sum += style_score
 
             # calculating the total loss
-            loss = content_weight * content_score + style_weight * style_score
+            loss = content_score + style_score
 
             # computing gradients
             loss.backward()
