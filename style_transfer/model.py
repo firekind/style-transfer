@@ -1,10 +1,9 @@
-from typing import List
+from collections import namedtuple
+from typing import List, Tuple
 
 import torch
 import torch.nn as nn
 from tsalib import get_dim_vars
-
-from .losses import ContentLoss, StyleLoss
 
 B, C, H, W = get_dim_vars('B C H W')
 
@@ -29,119 +28,62 @@ class Normalization(nn.Module):
 
 
 class StyleTransferer(nn.Module):
-    def __init__(
-            self,
-            content_layers: List[str],
-            style_layers: List[str],
-            content_image: (B, C, H, W),
-            style_image: (B, C, H, W),
-            feature_extractor: nn.Sequential,
-            mean: (C,),
-            std: (C,)
-    ):
+    def __init__(self, content_layers: List[str], style_layers: List[str], feature_extractor: nn.Module, mean: (C,),
+                 std: (C,)):
         """
         Takes an image and reproduce it with a new artistic style.
 
         Args:
-            content_layers (List[str]): The layers that are used to calculate the content loss.
-            style_layers (List[str]): The layers that are used to calculate the style loss.
-            content_image ((B, C, H, W)): The tensor depicting the content of the output.
-            style_image ((B, C, H, W)): The tensor whose style needs to be transferred.
-            feature_extractor (nn.Sequential): The module that is used to generate feature maps.
-            mean ((C)): The mean used to normalize the channels during the training of the 
-            feature extractor. A tensor.
-            std ((C)): The std used to normalize the channels during the training of the 
-            feature extractor. A tensor.
-
-        Raises:
-            RuntimeError: When an unrecognized layer is found in the `feature_extractor`.
+            content_layers (List[str]): The layers used to calculate content loss.
+            style_layers (List[str]): The layers used to calculate style loss.
+            feature_extractor (nn.Module): The model used to extract the features.
+            mean ((C,)): The mean of the images used to train the extractor. A 1 dimensional tensor.
+            std ((C,)): The std of the images used to train the extractor. A 1 dimensional tensor.
         """
 
         super(StyleTransferer, self).__init__()
 
-        # defining variables
-        self.layers = nn.Sequential(Normalization(mean, std))
-        self.content_losses: List[ContentLoss] = []
-        self.style_losses: List[StyleLoss] = []
+        self.norm = Normalization(mean, std)
+        self.content_layers = content_layers
+        self.style_layers = style_layers
+        self.feature_extractor = nn.Sequential()
+        self.max_layer_count = max(len(content_layers), len(style_layers))
+        self.result_tuple = namedtuple(
+            "TransferResult", [
+                *[f"content_{name}" for name in content_layers],
+                *[f"style_{name}" for name in style_layers],
+            ])
 
-        count: int = 0
-        last_layer_count = max(len(content_layers), len(style_layers))
+        # reconstructing feature extractor to remove inplace ReLU operations
+        # (inplace ReLU operation messes with output)
+        for name, layer in feature_extractor.named_children():
+            if isinstance(layer, nn.ReLU):
+                layer = nn.ReLU(inplace=False)
+            self.feature_extractor.add_module(name, layer)
 
-        iterator = iter(feature_extractor)
+    def forward(self, x: (B, C, H, W)) -> Tuple:
+        # constructing iterator
+        iterator = iter(self.feature_extractor)
 
-        while count < last_layer_count:
-            # getting the next layer from the feature extractor
-            layer = next(iterator)
+        # initializing variables
+        count = 0
+        result = {}
 
-            # setting the name (and layer) depending on the type of 
-            # layer
+        # forward proping
+        x = self.norm(x)
+        while count < self.max_layer_count:
+            layer: nn.Module = next(iterator)
+            x: (B, C, H, W) = layer(x)
+
             if isinstance(layer, nn.Conv2d):
                 count += 1
-                name = f"conv_{count}"
-            elif isinstance(layer, nn.ReLU):
-                name = f"relu_{count}"
-                layer = nn.ReLU(inplace=False)
-            elif isinstance(layer, nn.MaxPool2d):
-                name = f"pool_{count}"
-            elif isinstance(layer, nn.BatchNorm2d):
-                name = f"batchnorm_{count}"
-            else:
-                raise RuntimeError(f"Unknown layer: {layer}")
+                layer_name = f"conv_{count}"
 
-            # adding the layer to the model
-            self.layers.add_module(name, layer)
+                if layer_name in self.content_layers:
+                    result[f"content_{layer_name}"] = x
 
-            # adding `ContentLoss` module
-            if name in content_layers:
-                # getting feature map of content image generated upto this layer
-                # noinspection PyTypeChecker
-                feature_map: (B, C, H, W) = self.layers(content_image)
+                if layer_name in self.style_layers:
+                    result[f"style_{layer_name}"] = x
 
-                # constructing `ContentLoss` module and adding it `self.content_losses`
-                module = ContentLoss(feature_map)
-                self.content_losses.append(module)
-
-                # adding the `ContentLoss` module
-                self.layers.add_module(
-                    f"content_loss_{count}",
-                    module
-                )
-
-            # adding `StyleLoss` module
-            if name in style_layers:
-                # getting feature map of content image generated upto this layer
-                # noinspection PyTypeChecker
-                feature_map: (B, C, H, W) = self.layers(style_image)
-
-                # constructing `StyleLoss` module and adding it `self.style_losses`
-                module = StyleLoss(feature_map)
-                self.style_losses.append(module)
-
-                # constructing and adding `StyleLoss` module
-                self.layers.add_module(
-                    f"style_loss_{count}",
-                    module
-                )
-
-    def forward(self, x: (B, C, H, W)) -> (B, C, H, W):
-        return self.layers(x)
-
-    def content_score(self) -> torch.Tensor:
-        """
-        Calculates the total content loss in the model.
-
-        Returns:
-            float: The content loss.
-        """
-
-        return sum([c.loss for c in self.content_losses])
-
-    def style_score(self) -> torch.Tensor:
-        """
-        Calculates the total style loss in the model.
-
-        Returns:
-            float: The content loss.
-        """
-
-        return sum([s.loss for s in self.style_losses])
+        # noinspection PyArgumentList
+        return self.result_tuple(**result)
