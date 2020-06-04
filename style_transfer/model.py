@@ -61,6 +61,9 @@ class StyleTransferer(nn.Module):
                 layer = nn.ReLU(inplace=False)
             self.feature_extractor.add_module(name, layer)
 
+        for param in self.feature_extractor.parameters():
+            param.requires_grad = False
+
     def forward(self, x: (B, C, H, W)) -> Tuple:
         # constructing iterator
         iterator = iter(self.feature_extractor)
