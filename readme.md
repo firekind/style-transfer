@@ -38,11 +38,11 @@ The first row of the gram matrix contains the values of the first channel multip
 
 Mathematically, given an input image *x*, target *y* and layer *l*,
 
-<div style="text-align: center"><img src="images/theory/contentloss.jpg" width=300/></div>
+<p align="center"><img src="images/theory/contentloss.jpg" width=300/></p>
 <br/>
-<div style="text-align: center"><img src="images/theory/styleloss.jpg" width=400/></div>
+<p align="center"><img src="images/theory/styleloss.jpg" width=400/></p>
 <br/>
-<div style="text-align: center"><img src="images/theory/totalloss.jpg" width=200/></div>
+<p align="center"><img src="images/theory/totalloss.jpg" width=200/></p>
 
 Where *a<sub>l</sub>* is a function to obtain the activation at layer *l*. and *g* is a function that computes the gram matrix.
 
