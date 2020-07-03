@@ -47,7 +47,6 @@ class StyleTransferer(nn.Module):
         self.content_layers = content_layers
         self.style_layers = style_layers
         self.feature_extractor = nn.Sequential()
-        self.max_layer_count = max(len(content_layers), len(style_layers))
         self.result_tuple = namedtuple(
             "TransferResult", [
                 *[f"content_{name}" for name in content_layers],
@@ -56,37 +55,47 @@ class StyleTransferer(nn.Module):
 
         # reconstructing feature extractor to remove inplace ReLU operations
         # (inplace ReLU operation messes with output)
+        conv_layer_idx = 1
+        conv_count = 0
+
         for name, layer in feature_extractor.named_children():
             if isinstance(layer, nn.ReLU):
                 layer = nn.ReLU(inplace=False)
+            if isinstance(layer, nn.MaxPool2d):
+                conv_layer_idx += 1
+                conv_count = 0
+            if isinstance(layer, nn.Conv2d):
+                conv_count += 1
+                name = f"conv_{conv_layer_idx}_{conv_count}"
+
             self.feature_extractor.add_module(name, layer)
 
         for param in self.feature_extractor.parameters():
             param.requires_grad = False
 
     def forward(self, x: (B, C, H, W)) -> Tuple:
-        # constructing iterator
-        iterator = iter(self.feature_extractor)
-
-        # initializing variables
-        count = 0
         result = {}
+        content_layer_name = None
+        style_layer_name = None
 
         # forward proping
         x = self.norm(x)
-        while count < self.max_layer_count:
-            layer: nn.Module = next(iterator)
+        for name, layer in self.feature_extractor.named_children():
             x: (B, C, H, W) = layer(x)
 
-            if isinstance(layer, nn.Conv2d):
-                count += 1
-                layer_name = f"conv_{count}"
+            if content_layer_name is not None:
+                result[f"content_{content_layer_name}"] = x
+                content_layer_name = None
 
-                if layer_name in self.content_layers:
-                    result[f"content_{layer_name}"] = x
+            if style_layer_name is not None:
+                result[f"style_{style_layer_name}"] = x
+                style_layer_name = None
 
-                if layer_name in self.style_layers:
-                    result[f"style_{layer_name}"] = x
+            if name in self.content_layers:
+                content_layer_name = name
+
+            if name in self.style_layers:
+                style_layer_name = name
 
         # noinspection PyArgumentList
         return self.result_tuple(**result)

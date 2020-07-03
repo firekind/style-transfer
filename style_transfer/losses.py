@@ -21,7 +21,7 @@ def style_loss(x: (B, C, H, W), target: (B, C, H, W)) -> torch.Tensor:
 
     # calculating MSE loss between gram matrix of input and
     # gram matrix of target
-    return F.mse_loss(gram_matrix(x), gram_matrix(target).detach())
+    return F.mse_loss(gram_matrix(x), gram_matrix(target))
 
 
 def content_loss(x: (B, C, H, W), target: (B, C, H, W)) -> torch.Tensor:
@@ -36,4 +36,4 @@ def content_loss(x: (B, C, H, W), target: (B, C, H, W)) -> torch.Tensor:
         torch.Tensor: A scalar loss.
     """
     # noinspection PyTypeChecker
-    return F.mse_loss(x, target.detach())
+    return F.mse_loss(x, target)

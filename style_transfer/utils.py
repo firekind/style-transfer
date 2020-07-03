@@ -17,14 +17,16 @@ def gram_matrix(x: (B, C, H, W)) -> (C, C):
     # reshaping F_XL to \hat F_XL, which is a KxN matrix where K is the number
     # of feature maps at layer L, and N is the length of the vectorized feature
     # map
-    features: (B * C, H * W) = x.view(b * c, h * w)
+    features: (B, C, H * W) = x.view(b, c, h * w)
 
     # computing gram matrix
-    G: (C, C) = torch.mm(features, features.t())
+    G: (C, C) = torch.bmm(features, features.transpose(1, 2))
 
     # normalizing the values of the gram matrix by dividing each value in the 
     # matrix by the total number of elements in the feature map
-    return G.div(b * c * h * w)
+    G.div_(h * w)
+    
+    return G
 
 
 class ModelTargets:
@@ -63,12 +65,12 @@ class ModelTargets:
         # extracting content targets and assigning them to self.
         for name in self.content_layers:
             full_name = f"content_{name}"
-            setattr(self, full_name, getattr(content_res, full_name))
+            setattr(self, full_name, getattr(content_res, full_name).detach())
 
         # extracting style targets and assigning them to self
         for name in self.style_layers:
             full_name = f"style_{name}"
-            setattr(self, full_name, getattr(style_res, full_name))
+            setattr(self, full_name, getattr(style_res, full_name).detach())
 
         # setting model to train mode
         self.model.train()

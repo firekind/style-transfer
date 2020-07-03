@@ -20,14 +20,14 @@ def transfer_style(
         style_image_path: str,
         cuda: bool = True,
         image_size: int = 512,
-        content_as_input: bool = True,
         epochs: int = 16,
         content_weight: Union[float, List[float]] = 1,
         style_weight: Union[float, List[float]] = 1000000,
-        extractor_mean: List[float] = (0.485, 0.456, 0.406),
-        extractor_std: List[float] = (0.229, 0.224, 0.225),
-        content_layers: List[str] = ("conv_4",),
-        style_layers: List[str] = ("conv_1", "conv_2", "conv_3", "conv_4", "conv_5")
+        extractor_mean: List[float] = (0.40760392, 0.45795686, 0.48501961),
+        extractor_std: List[float] = (1, 1, 1),
+        content_layers: List[str] = ("conv_4_2",),
+        style_layers: List[str] = ("conv_1_1", "conv_2_1", "conv_3_1", "conv_4_1", "conv_5_1"),
+        save_path: str = None
 ) -> Image.Image:
     """
     Transfers the style from the style image to the content image.`
@@ -37,18 +37,18 @@ def transfer_style(
         style_image_path (str): The path to the style image
         cuda (bool, optional): If True, will use cuda. Defaults to True.
         image_size (int, optional): The size to resize to while training. Defaults to 512.
-        content_as_input (bool, optional): Use the content image as input while training. Defaults to True.
         epochs (int, optional): Number of epochs to train for. Defaults to 16.
         content_weight (Union[float, List[float], optional): The weight(s) for the content loss. If a list, number of weights given should
         match the number of layers given for `content_layers`. Defaults to 1.
         style_weight (Union[float, List[float], optional): The weight(s) for the style loss. If a list, number of weights given should
         match the number of layers given for `style_layers`.Defaults to 1000000.
         extractor_mean (List[float], optional): The mean used to normalize the channels during the training of the 
-        model which will be used to extract features (VGG19 by default). Defaults to [0.485, 0.456, 0.406].
+        model which will be used to extract features (VGG19). Defaults to [0.485, 0.456, 0.406].
         extractor_std (List[float], optional): The std used to normalize the channels during the training of the 
-        model which will be used to extract features (VGG19 by default). Defaults to [0.229, 0.224, 0.225].
+        model which will be used to extract features (VGG19). Defaults to [0.229, 0.224, 0.225].
         content_layers (List[str]): The layers used to calculate content loss.
         style_layers (List[str]): The layers used to calculate style loss.
+        save_path (str): Path to save the output image (as JPEG) to.
 
     Raises:
         RuntimeError: If the number of weights given are invalid (if they are a list)
@@ -82,9 +82,7 @@ def transfer_style(
     processed_style: (B, C, H, W) = processed_style.unsqueeze(0)
 
     # getting / constructing the image to be used as input to the model
-    input_image: (B, C, H, W) = processed_content.clone() if content_as_input else torch.randn(
-        processed_content.shape, device=device
-    )
+    input_image: (B, C, H, W) = processed_content.clone()
 
     # constructing model
     model = StyleTransferer(
@@ -168,4 +166,9 @@ def transfer_style(
         prog_bar.update(current_epoch,
                         values=[("content loss", content_loss_sum / count), ("style loss", style_loss_sum / count)])
 
-    return postprocess(input_image.squeeze().cpu())
+    output_image = postprocess(input_image.squeeze().cpu())
+    if save_path is not None:
+        output_image.save(save_path, "JPEG")
+        print("saved output to: %s" % save_path)
+
+    return output_image
