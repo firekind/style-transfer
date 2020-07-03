@@ -7,7 +7,7 @@ Style transfer is the process of transferring the "style" of a *style image* int
 
 Content Image | Style Image | Result
 :-------------|-------------|----------:
-|<img src="images/dancing.jpg" height=300/>|<img src="images/picasso.jpg" height=300/>|<img src="images/dancing_out.jpg" height=300/>|
+|<img src="images/dancing.jpg" height=250/>|<img src="images/picasso.jpg" height=250/>|<img src="images/dancing_out.jpg" height=250/>|
 
 ## How it works
 Transferring the style involves "extracting" the style of the style image and merging it with the content of the content image. To obtain these, A network that is trained on object recognition is used.
