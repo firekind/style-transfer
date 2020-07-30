@@ -79,7 +79,7 @@ Activate the environment using
 $ conda activate style-transfer
 ```
 
-To run the program from command line, run `main.py` and provide the necessary arguments.
+To run the program from command line, run `main.py` and provide the necessary arguments (make sure the environment is activated first).
 
 ```sh
 $ python main.py --help
@@ -113,7 +113,13 @@ optional arguments:
                         path to save the output image (as JPEG).
 ```
 
-look at `notebooks/transfer_style.ipynb` notebook to find out how to run the code from within a python program.
+To run the streamlit app, activate the conda environment first and then,
+
+```sh
+$ streamlit run app.py
+```
+
+Look at `notebooks/transfer_style.ipynb` notebook to find out how to run the code from within a python program.
 
 
 ## References
