@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Callable
 
 import torch
 import torch.optim as optim
@@ -16,8 +16,10 @@ B, C, H, W = get_dim_vars("B C H W")
 
 
 def transfer_style(
-        content_image_path: str,
-        style_image_path: str,
+        content_image_path: str = None,
+        style_image_path: str = None,
+        style_image: Image = None,
+        content_image: Image = None,
         cuda: bool = True,
         image_size: int = 512,
         epochs: int = 16,
@@ -27,14 +29,18 @@ def transfer_style(
         extractor_std: List[float] = (1, 1, 1),
         content_layers: List[str] = ("conv_4_2",),
         style_layers: List[str] = ("conv_1_1", "conv_2_1", "conv_3_1", "conv_4_1", "conv_5_1"),
-        save_path: str = None
+        save_path: str = None,
+        post_epoch_callback: Callable = None,
+        verbose: bool = True,
 ) -> Image.Image:
     """
     Transfers the style from the style image to the content image.`
 
     Args:
         content_image_path (str): The path to the content image.
-        style_image_path (str): The path to the style image
+        style_image_path (str): The path to the style image.
+        style_image (Image): The style image itself. Priority given to this instead of style_image_path when both are defined. Defaults to None.
+        content_image (Image): The content image. Priority given to this instead of content_image_path when both are defined. Defaults to None.
         cuda (bool, optional): If True, will use cuda. Defaults to True.
         image_size (int, optional): The size to resize to while training. Defaults to 512.
         epochs (int, optional): Number of epochs to train for. Defaults to 16.
@@ -49,6 +55,8 @@ def transfer_style(
         content_layers (List[str]): The layers used to calculate content loss.
         style_layers (List[str]): The layers used to calculate style loss.
         save_path (str): Path to save the output image (as JPEG) to.
+        post_epoch_callback (Callable): Function to call once an epoch is over. Defaults to None.
+        verbose (bool): Enables verbose output. Defaults to True.
 
     Raises:
         RuntimeError: If the number of weights given are invalid (if they are a list)
@@ -73,12 +81,19 @@ def transfer_style(
     # getting the pre-processing and post processing transforms
     preprocess, postprocess = get_processing_transforms(image_size)
 
+    # checking if image is given directly to the function
+    # or whether the image should be loaded from the given path
+    if content_image is None:
+        content_image = Image.open(content_image_path)
+    if style_image is None:
+        style_image = Image.open(style_image_path)
+
     # getting the content image
-    processed_content: (C, H, W) = preprocess(Image.open(content_image_path)).to(device)
+    processed_content: (C, H, W) = preprocess(content_image).to(device)
     processed_content: (B, C, H, W) = processed_content.unsqueeze(0)
 
     # getting the style image
-    processed_style: (C, H, W) = preprocess(Image.open(style_image_path)).to(device)
+    processed_style: (C, H, W) = preprocess(style_image).to(device)
     processed_style: (B, C, H, W) = processed_style.unsqueeze(0)
 
     # getting / constructing the image to be used as input to the model
@@ -110,7 +125,8 @@ def transfer_style(
     current_epoch: int = 0
 
     # creating progress bar
-    prog_bar = Kbar(target=epochs, unit_name="epoch")
+    if verbose:
+        prog_bar = Kbar(target=epochs, unit_name="epoch")
 
     # training
     while current_epoch < epochs:
@@ -163,8 +179,12 @@ def transfer_style(
 
         # updating required variables
         current_epoch += 1
-        prog_bar.update(current_epoch,
-                        values=[("content loss", content_loss_sum / count), ("style loss", style_loss_sum / count)])
+        if verbose:
+            prog_bar.update(current_epoch,
+                            values=[("content loss", content_loss_sum / count), ("style loss", style_loss_sum / count)])
+        
+        if post_epoch_callback is not None:
+            post_epoch_callback()
 
     output_image = postprocess(input_image.squeeze().cpu())
     if save_path is not None:

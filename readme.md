@@ -2,14 +2,12 @@
 
 This repository contains an implementation of [Neural Algorithm of Artistic Style](https://arxiv.org/abs/1508.06576). 
 
-## What it is
+## What it is?
 Style transfer is the process of transferring the "style" of a *style image* into a *content image*. For example, rendering a picture of a building the way Vincent Van Gogh would paint it.
 
-Content Image | Style Image | Result
-:-------------|-------------|----------:
-|<img src="images/dancing.jpg" height=250/>|<img src="images/picasso.jpg" height=250/>|<img src="images/dancing_out.jpg" height=250/>|
+<p align="center"><img src="https://github.com/firekind/style-transfer/raw/master/images/combo.png" width=600/></p>
 
-## How it works
+## How it works?
 Transferring the style involves "extracting" the style of the style image and merging it with the content of the content image. To obtain these, A network that is trained on object recognition is used.
 
 Such networks are able to "extract" the objects of an image irrespective of that object's location in the image. The deeper one goes down the network, more the network cares about the actual object in the image rather than the pixel values of the image. Thus, deeper layers capture high level information of the image, and higher layers deal with pixel information.
@@ -32,17 +30,18 @@ The question remains on how to calculate the style and content losses. The conte
 
 To understand why a gram matrix is used to calculate the style loss, consider the example of a 32x32x256 feature map which is the output of a convolutional layer. This feature map has a width and height of 32 and has 256 channels. Assume that channel 0 of the feature map activates (has a high value) when the network detects a mountain, and channel 0 of the map activates when the network detects clouds. Thus, in an image with mountains and a lot of clouds, these two channels have high activations, and are related to each other.
 
-Thus, to get the correlations of all the channels with each other, one could do the following:<br/>![](images/theory/gram_matrix.jpg)
+Thus, to get the correlations of all the channels with each other, one could do the following:<br/>
+<p align="center"><img src=https://github.com/firekind/style-transfer/raw/master/images/theory/gram_matrix.jpg height=350 /></p>
 
 The first row of the gram matrix contains the values of the first channel multiplied with every other channel, the second row contains values of the second channel multiplied with every other channel and so on. Thus the gram matrix contains the correlations of each channel with every other channel.
 
 Mathematically, given an input image *x*, target *y* and layer *l*,
 
-<p align="center"><img src="images/theory/contentloss.jpg" width=300/></p>
+<p align="center"><img src="https://github.com/firekind/style-transfer/raw/master/images/theory/contentloss.jpg" width=300/></p>
 <br/>
-<p align="center"><img src="images/theory/styleloss.jpg" width=400/></p>
+<p align="center"><img src="https://github.com/firekind/style-transfer/raw/master/images/theory/styleloss.jpg" width=400/></p>
 <br/>
-<p align="center"><img src="images/theory/totalloss.jpg" width=200/></p>
+<p align="center"><img src="https://github.com/firekind/style-transfer/raw/master/images/theory/totalloss.jpg" width=200/></p>
 
 Where *a<sub>l</sub>* is a function to obtain the activation at layer *l*. and *g* is a function that computes the gram matrix.
 
@@ -51,20 +50,22 @@ Where *a<sub>l</sub>* is a function to obtain the activation at layer *l*. and *
 Here are some results from the model implemented in this repo:
 
 ### Original
-![](images/results/forest.jpg)
+<p align="center"><img src=https://github.com/firekind/style-transfer/raw/master/images/results/forest.jpg height=350/></p>
+
 ### Result
 Style from `images/picasso.jpg`.
 
-![](images/results/forest_out.jpg)
+<p align="center"><img src=https://github.com/firekind/style-transfer/raw/master/images/results/forest_out.jpg height=350/></p>
 
 <br/>
 
 ### Original
-![](images/results/sunrise.jpg)
+<p align="center"><img src=https://github.com/firekind/style-transfer/raw/master/images/results/sunrise.jpg height=350 /></p>
+
 ### Result
 Style from `images/style.jpg`.
 
-![](images/results/sunrise_out.jpg)
+<p align="center"><img src=https://github.com/firekind/style-transfer/raw/master/images/results/sunrise_out.jpg height=350 /></p>
 
 ## Setup
 Clone the repository and `cd` into the directory. Create the environment using anaconda
@@ -117,6 +118,6 @@ look at `notebooks/transfer_style.ipynb` notebook to find out how to run the cod
 
 ## References
 
-- [Neural Algorithm of Artistic Style](https://arxiv.org/abs/1508.06576). 
+- [Neural Algorithm of Artistic Style](https://arxiv.org/abs/1508.06576)
 - [Neural Style Transfer Tutorial - Part 1](https://towardsdatascience.com/neural-style-transfer-tutorial-part-1-f5cd3315fa7f)
 - [Neural Style Transfer using Pytorch](https://pytorch.org/tutorials/advanced/neural_style_tutorial.html)
